@@ -1,14 +1,14 @@
 # MOS Docker shim
 
 mos-docker-shim provides a **MOS plugin** that allows container which are
-using a br0 or eth0 network to communicate with the Host (MOS).
+using a br0 or eth0 (macvlan/ipvlan) network reach the Host (MOS).
 
 ---
 
 ## Overview
 
-This plugin allows Docker containers which are using a br0 or eth0 network
-to communicate with the Host.
+This plugin allows containers in LAN networks (br0/eth0, macvlan/ipvlan)
+to reach the host.
 
 ---
 
