@@ -1,0 +1,95 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '0.0.1'
+        required: true
+        default: '0.0.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Vue plugin
+        working-directory: page
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          npm install
+          npm run build
+
+      - name: Create package structure
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          PKG_NAME="docker_shim-${VERSION}-1+mos-plugin"
+          PKG_DIR="${PKG_NAME}_amd64"
+
+          # Create directory structure
+          mkdir -p ${PKG_DIR}/usr/bin/plugins
+          mkdir -p ${PKG_DIR}/var/www/mos-plugins/docker-shim
+          mkdir -p ${PKG_DIR}/DEBIAN
+
+          # Copy Vue plugin
+          cp -R page/dist/docker-shim/* ${PKG_DIR}/var/www/mos-plugins/docker-shim/
+
+          # Create DEBIAN control file
+          cat > ${PKG_DIR}/DEBIAN/control << EOF
+          Package: docker-shim-plugin
+          Version: ${VERSION}-1+mos-plugin
+          Architecture: amd64
+          Maintainer: admin@minenet.at
+          Description: Docker shim Plugin for MOS
+          EOF
+
+      - name: Build .deb package
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          PKG_NAME="docker_shim-${VERSION}-1+mos-plugin"
+          PKG_DIR="${PKG_NAME}_amd64"
+          DEB_FILE="${PKG_NAME}_amd64.deb"
+
+          dpkg-deb --build ${PKG_DIR}
+
+          # Generate MD5
+          md5sum ${DEB_FILE} | awk '{print $1}' > ${DEB_FILE}.md5
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Docker shim Plugin ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Docker shim Plugin ${{ steps.version.outputs.VERSION }}
+
+          files: |
+            docker_shim-${{ steps.version.outputs.VERSION }}-1+mos-plugin_amd64.deb
+            docker_shim-${{ steps.version.outputs.VERSION }}-1+mos-plugin_amd64.deb.md5
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
