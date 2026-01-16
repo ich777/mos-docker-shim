@@ -1,22 +1,22 @@
 #!/bin/bash
 
+# Set necessary variables for functions
+# Get interface name depending if bridged or not
+bridged=$(jq -r '.interfaces[] | select(.name == "eth0") | .type' /boot/config/network.json)
+if [ "$bridged" == "bridged" ] ; then
+  interface_name="br0"
+else
+  interface_name="eth0"
+fi
+
+# Set shim name
+shim_name="shim-${interface_name}"
+
+# Get host IP
+host_ip=$(ip -o -f inet addr show ${interface_name} | awk '{print $4}' | cut -d/ -f1 | head -1)
 
 # Docker shim function
 docker_shim() {
-  # Get interface name depending if bridged or not
-  bridged=$(jq -r '.interfaces[] | select(.name == "eth0") | .type' /boot/config/network.json)
-  if [ "$bridged" == "bridged" ] ; then
-    interface_name="br0"
-  else
-    interface_name="eth0"
-  fi
-
-  # Set shim name
-  shim_name="shim-${interface_name}"
-
-  # Get host IP
-  host_ip=$(ip -o -f inet addr show ${interface_name} | awk '{print $4}' | cut -d/ -f1 | head -1)
-
   # Get Docker network mode
   docker_net_mode=$(jq -r '.docker_net.mode' /boot/config/docker.json)
   if [ "$docker_net_mode" == "ipvlan" ] ; then
@@ -37,6 +37,14 @@ docker_shim() {
   fi
 }
 
+# Remove Docker shim function
+remove_shim() {
+  # Remove shim network
+  ip route del ${host_ip%.*}.0/25 dev "$shim_name" 2>/dev/null
+  ip route del ${host_ip%.*}.128/25 dev "$shim_name" 2>/dev/null
+  ip link del "$shim_name" 2>/dev/null
+}
+
 ################################################
 # END OF DRIVER SPECIFIC PLUGIN BASE FUNCTIONS #
 ################################################
@@ -47,4 +55,8 @@ install() {
 
 mos_start() {
   docker_shim
+}
+
+uninstall() {
+  remove_shim
 }
