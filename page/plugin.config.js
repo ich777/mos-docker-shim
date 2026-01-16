@@ -1,5 +1,5 @@
 export default {
-  name: 'docker-local-host-access',
+  name: 'docker-shim',
   displayName: 'Docker Local Host Access',
   description: 'This plugin allows containers in LAN networks (br0/eth0, macvlan/ipvlan) to reach the host',
   version: '0.0.0',
