@@ -3,6 +3,8 @@
 mos-docker-shim provides a **MOS plugin** that allows container which are
 using a br0 or eth0 (macvlan/ipvlan) network reach the Host (MOS).
 
+## [Learn more about MOS](https://github.com/ich777/mos-releases)
+
 ---
 
 ## Overview
